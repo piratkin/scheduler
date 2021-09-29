@@ -39,7 +39,7 @@ EndFunc
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-Func dispose_handler($i)
+Func dispose_handler()
     _FileWriteLog($logfile, "End 'remove' logging")
 	FileClose($logfile)	
 	Return status($ERROR_SUCCESS)
