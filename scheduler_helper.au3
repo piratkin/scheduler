@@ -8,19 +8,14 @@
 #include <StringConstants.au3>
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; VARIABLES
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+Local $handlers
+Local $sessions
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; SCHEDULER HELPERS
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-Func session($i)
-    Return $scheduler_sessions[$i]
-EndFunc
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-Func handler($i)
-    Return $scheduler_handlers[$i]
-EndFunc
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 Func remainingTime($i)
@@ -36,21 +31,20 @@ EndFunc
 ; WEBDRIVER HELPERS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-Func clickAnywhere($i)
-    If check($i) Then Return $error
-    Opt("MouseCoordMode", 0)
-	Local $s = $scheduler_handlers[$i]
-	If Not $s Then
-		return False
+Func closeSession($i)
+	If $scheduler_threads > $i Then
+		If _WD_DeleteSession($sessions[$i]) Then
+			Return status($ERROR_SUCCESS)
+		EndIf
 	EndIf
-	Return ControlClick($s, "", "", "left", 1, 10, 100)
+	Return status($ERROR_SESSION)
 EndFunc
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 Func findTags($i, $tag)
     If check($i) Then Return $error
-    Local $s = $scheduler_sessions[$i]
+    Local $s = $sessions[$i]
 	Local $e = _WD_FindElement($s, $_WD_LOCATOR_ByXPath, $tag, "", True)
 	If @error = $_WD_ERROR_Success Then
 		Return Ubound($e)
@@ -61,7 +55,7 @@ EndFunc
 
 Func clickTagEx($i, $tag)
     If check($i) Then Return $error
-    Local $s = $scheduler_sessions[$i]
+    Local $s = $sessions[$i]
 	Local $e = _WD_FindElement($s, $_WD_LOCATOR_ByXPath, $tag)
 	If @error = $_WD_ERROR_Success Then
 	    _WD_ElementActionEx($s, $e, "hover")
@@ -77,7 +71,7 @@ EndFunc
 
 Func clickTag($i, $tag)
     If check($i) Then Return $error
-    Local $s = $scheduler_sessions[$i]
+    Local $s = $sessions[$i]
 	Local $e = _WD_FindElement($s, $_WD_LOCATOR_ByXPath, $tag)
 	If @error = $_WD_ERROR_Success Then
 		_WD_ElementAction($s, $e, 'click')
@@ -92,7 +86,7 @@ EndFunc
 
 Func inputTag($i, $tag, $value)
     If check($i) Then Return $error
-    Local $s = $scheduler_sessions[$i]
+    Local $s = $sessions[$i]
 	Local $e = _WD_FindElement($s, $_WD_LOCATOR_ByXPath, $tag)
 	If @error = $_WD_ERROR_Success Then
 	    _WD_ElementAction($s, $e, "clear")
@@ -104,8 +98,10 @@ Func inputTag($i, $tag, $value)
 	Return False
 EndFunc
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 Func openUrl($i, $url, $timeout = 15)
-	Local $s = $scheduler_sessions[$i]
+	Local $s = $sessions[$i]
 	Local $response = _WD_Timeouts($s)
 	Local $json = Json_Decode($response)
 	Local $_timeout = Json_Encode(Json_Get($json, "[value]"))
@@ -119,7 +115,7 @@ EndFunc
 ; AUTOIT HELPERS
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-Func closeWindows($title, $text = "", $timeout = 15)
+Func closeAllWindows($title, $text = "", $timeout = 15)
     Local $counter = 0
     Local $windows = WinList($title, $text)
 	For $i = 1 To $windows[0][0]
@@ -129,6 +125,30 @@ Func closeWindows($title, $text = "", $timeout = 15)
 		$counter += 1
 	Next
 	Return $counter
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+Func closeWindow($i)
+    If $scheduler_threads > $i And $handlers[$i] Then
+		If WinClose($handlers[$i]) Then
+		    $handlers[$i] = 0
+			Return status($ERROR_SUCCESS)
+		EndIf
+	EndIf
+	Return status($ERROR_HANDLER)
+EndFunc
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+Func clickAnywhere($i)
+    If $scheduler_threads > $i And $handlers[$i] Then
+		Opt("MouseCoordMode", 0)
+		If ControlClick($handlers[$i], "", "", "left", 1, 10, 100) Then
+			Return status($ERROR_SUCCESS)
+		EndIf
+	EndIf
+	Return status($ERROR_HANDLER)
 EndFunc
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
